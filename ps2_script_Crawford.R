@@ -84,4 +84,36 @@ unemp_top_increases_no_covid <- unemp_no_covid |>
 unemp_top_decreases_no_covid <- unemp_no_covid |> 
   slice_min(unemployment_rate_change, n = 5)
 
+# Part 5
+
+# Plot comparing unemployment rate per region over time
+ggplot(data = unemp, aes(x = date, y = unemployment_rate, color = region)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Unemployment Rate (%)",
+    title = "Unemployment Rate by Region") +
+  theme_minimal()
+
+# Creating individual graphs of unemployment rate per region over time
+ggplot(data = unemp, aes(x = date, y = unemployment_rate)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Unemployment Rate (%)",
+    title = "Unemployment Rate Broken Up by Region") +
+  facet_wrap(~region) +
+  theme_minimal()
+
+# Bar graph comparing mean unemployment rate per region
+ggplot(data = unemp_summary, aes(x =fct_reorder(region,mean_rate), y = mean_rate)) +
+  geom_col() +
+  labs(
+    x = "Region",
+    y = "Unemployment Rate (%)",
+    title = "Mean Unemployment Rate by Region"
+  )
+
+
+
 
