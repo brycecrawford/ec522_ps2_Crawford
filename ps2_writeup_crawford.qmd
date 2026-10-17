@@ -1,0 +1,198 @@
+---
+title: "Problem Set 2"
+author: "Bryce Crawford"
+date: today
+format:
+  html:
+    toc: true
+    embed-resources: true
+---
+
+**GitHub Repo** https://github.com/brycecrawford/ec522_ps2_Crawford
+
+## Set Up
+
+
+I downloaded the Unemployment Rate data directly from FRED database. Includes Unemployment Rate for specific regions (Oregon, California, Texas, New York, and United States) from 1976 to present. I had issues getting tq_get to pull data from FRED, so had to provide special permissions to allow FRED to accept my quarto pull of data. 
+
+```{r}
+options(
+  HTTPUserAgent = "RStudio Desktop Pro (2026.9.0.174.3); R (4.5.1 aarch64-apple-darwin20 aarch64 darwin20)",
+  download.file.method = "libcurl")
+
+pacman::p_load(tidyquant, tidyverse,knitr)
+
+unemp_raw <- tq_get(
+   c("UNRATE", "ORUR", "CAUR", "TXUR", "NYUR"),
+   get = "economic.data",
+   from = "1976-01-01")
+
+dir.create("data", showWarnings = FALSE)
+write_rds(unemp_raw, "data/unemp_raw.rds")
+```
+
+Showing a small sample of data
+
+```{r}
+unemp_raw <- read_rds("data/unemp_raw.rds")
+head(unemp_raw)
+```
+
+## Data Cleaning
+
+Renaming columns and creating a new column for region names. Also, replacing the unemployment rate for October 2025 with the September 2025 value for all regions. Due to the government shutdown, the BLS didn't report statistics for October 2025.
+
+```{r}
+unemp <- unemp_raw |> 
+  rename(unemployment_rate = price) |> 
+  mutate(
+    region = case_when(
+    symbol == "UNRATE" ~ "United States",
+    symbol == "ORUR" ~ "Oregon",
+    symbol == "CAUR" ~ "California",
+    symbol == "TXUR" ~ "Texas",
+    symbol == "NYUR" ~ "New York"))
+
+```
+
+```{r}
+unemp <- unemp |> 
+  arrange(region, date) |> 
+  group_by(region) |> 
+  mutate(
+    unemployment_rate = replace(
+      unemployment_rate,
+      date == as.Date("2025-10-01"),
+      unemployment_rate[date == as.Date("2025-09-01")]
+    )
+  ) |> 
+  ungroup()
+```
+
+## Data Wrangling
+
+Creating a new column for the change in unemployment rate from the previous month for each region.
+
+```{r}
+unemp <- unemp |> 
+  arrange(region, date) |> 
+  group_by(region) |> 
+  mutate(unemployment_rate_change = unemployment_rate - lag(unemployment_rate)) |> 
+  ungroup()
+```
+
+Filtering the data to include only observations from January 2015 to present.
+
+```{r}
+unemp_recent <- unemp |> 
+  filter(date >= "2015-01-01")
+```
+
+Computing the mean, minimum, and maximum unemployment rates for each region for the entire dataset and for the recent dataset (2015 to present).
+
+```{r}
+unemp_summary <- unemp |> 
+  group_by(region) |> 
+  summarize(
+    mean_rate = mean(unemployment_rate, na.rm = TRUE),
+    min_rate = min(unemployment_rate, na.rm = TRUE),
+    max_rate = max(unemployment_rate, na.rm = TRUE))
+
+unemp_recent_summary <- unemp_recent |> 
+  group_by(region) |> 
+  summarize(
+    mean_rate = mean(unemployment_rate, na.rm = TRUE),
+    min_rate = min(unemployment_rate, na.rm = TRUE),
+    max_rate = max(unemployment_rate, na.rm = TRUE))
+```
+
+Finding the max and min unemployment rate changes for each region including covid dates.
+
+```{r}
+unemp_top_decreases <- unemp |> 
+  slice_min(unemployment_rate_change, n = 5)
+
+unemp_top_increases <- unemp |> 
+  slice_max(unemployment_rate_change, n = 5)
+```
+
+Finding the max and min unemployment rate changes for each region excluding covid dates.
+
+```{r}
+unemp_no_covid <- unemp |> 
+  filter(year(date) != 2020)
+
+unemp_top_increases_no_covid <- unemp_no_covid |> 
+  slice_max(unemployment_rate_change, n = 5)
+
+unemp_top_decreases_no_covid <- unemp_no_covid |> 
+  slice_min(unemployment_rate_change, n = 5)
+```
+
+Tables of summary statistics and top increases/decreases in unemployment rates.
+
+```{r}
+kable(unemp_summary, caption = "Summary of Unemployment Rates by Region (1976-Present)")
+kable(unemp_recent_summary, caption = "Summary of Unemployment Rates by Region (2015-Present)")
+kable(unemp_top_increases, caption = "Top 5 Increases in Unemployment Rate by Region (1976-Present)")
+kable(unemp_top_decreases, caption = "Top 5 Decreases in Unemployment Rate by Region (1976-Present)")
+```
+
+## Visualization
+
+Graph of unemployment rates by region from 1976 to Present
+
+```{r}
+ggplot(data = unemp, aes(x = date, y = unemployment_rate, color = region)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Unemployment Rate (%)",
+    title = "Unemployment Rate by Region") +
+  theme_minimal()
+```
+
+Individual graphs of unemployment rates by region from 1976 to Present
+
+```{r}
+ggplot(data = unemp, aes(x = date, y = unemployment_rate)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Unemployment Rate (%)",
+    title = "Unemployment Rate Broken Up by Region") +
+  facet_wrap(~region) +
+  theme_minimal()
+```
+
+Bar graph of mean unemployment rate by region
+
+```{r}
+ggplot(data = unemp_summary, aes(x =fct_reorder(region,mean_rate), y = mean_rate, fill = region)) +
+  scale_fill_brewer(palette = "Set1") +
+  geom_col() +
+  labs(
+    x = "Region",
+    y = "Unemployment Rate (%)",
+    title = "Mean Unemployment Rate by Region")
+```
+
+Creating tibble of unemployment rate for the United States from April 2024 to visualize the effect of the Liberation Day Tariffs on unemployment rate. The tariffs were implemented on April 2, 2025, so I will add a vertical line to the graph to indicate that date. I chose to plot the unemployment rate between 2024 and 2026 to see how it changed after Trump invoked the International Emergency Economic Powers Act (IEEPA) to impose global reciprocal tariffs. From listening to podcasts and reading news during that time, it sounded like companies were laying off employees. The tariffs were implemented in phases so there wasn't as large as a shock as I was expecting. It does seem to show an association since unemployment did rise after Liberation day.
+
+```{r}
+tariff_unemp <- unemp |> 
+  filter(date >= as.Date("2024-01-01"), region == "United States")
+
+ggplot(tariff_unemp, aes( x = date, y = unemployment_rate)) +
+  geom_line() + 
+  geom_vline(xintercept = as.Date("2025-04-01"),linetype = "dashed", color = "red") +
+  annotate("text", x = as.Date("2025-04-01"), y = Inf, hjust = -0.05, vjust = 27, label = "2025-04-01") +
+  labs(
+    x = "Year",
+    y = "Unemployment Rate (%)",
+    title = "Unemployment Rate After Liberation Day Tariffs (2025-04-02)")
+```
+
+## Reflection
+
+This assignment was well formatted. All instructions were clear and the coding was pretty straighforward. I enjoyed learning how to create the repository in GitHub. It took some problem solving to figure it out, but I feel more confident using it now. I like how this class prioritizes creating a portfolio to show to employers, I only wish I did this earlier. I am not sure if I did the Quarto part right. I think all of my code was supposed to be in the document. I look forward to implementing more complicated code in the future. 

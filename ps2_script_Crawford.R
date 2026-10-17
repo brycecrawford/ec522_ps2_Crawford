@@ -133,3 +133,5 @@ ggplot(tariff_unemp, aes( x = date, y = unemployment_rate)) +
   
 
 # I chose to plot the unemployment rate between 2024 and 2026 to see how it changed after Trump invoked the International Emergency Economic Powers Act (IEEPA) to impose global reciprocal tariffs. From listening to podcasts and reading news during that time, it sounded like companies were laying off employees. The tariffs were implemented in phases so there wasn't as large as a shock as I was expecting. It does seem to show an association since unemployment did rise after Liberation day. 
+
+
