@@ -106,7 +106,8 @@ ggplot(data = unemp, aes(x = date, y = unemployment_rate)) +
   theme_minimal()
 
 # Bar graph comparing mean unemployment rate per region
-ggplot(data = unemp_summary, aes(x =fct_reorder(region,mean_rate), y = mean_rate)) +
+ggplot(data = unemp_summary, aes(x =fct_reorder(region,mean_rate), y = mean_rate, fill = region)) +
+  scale_fill_brewer(palette = "Set1") +
   geom_col() +
   labs(
     x = "Region",
@@ -114,6 +115,21 @@ ggplot(data = unemp_summary, aes(x =fct_reorder(region,mean_rate), y = mean_rate
     title = "Mean Unemployment Rate by Region"
   )
 
+macro <- unemp |> 
+  filter(year(date) >= 2017) |> 
+  filter(year(date) <= 2023)
 
+tariff_unemp <- unemp |> 
+  filter(date >= as.Date("2024-01-01"), region == "United States")
 
+ggplot(tariff_unemp, aes( x = date, y = unemployment_rate)) +
+  geom_line() + 
+  geom_vline(xintercept = as.Date("2025-04-01"),linetype = "dashed", color = "red") +
+  annotate("text", x = as.Date("2025-04-01"), y = Inf, hjust = -0.05, vjust = 27, label = "2025-04-01") +
+  labs(
+    x = "Year",
+    y = "Unemployment Rate (%)",
+    title = "Unemployment Rate After Liberation Day Tariffs (2025-04-02)")
+  
 
+# I chose to plot the unemployment rate between 2024 and 2026 to see how it changed after Trump invoked the International Emergency Economic Powers Act (IEEPA) to impose global reciprocal tariffs. From listening to podcasts and reading news during that time, it sounded like companies were laying off employees. The tariffs were implemented in phases so there wasn't as large as a shock as I was expecting. It does seem to show an association since unemployment did rise after Liberation day. 
